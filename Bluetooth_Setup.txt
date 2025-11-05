@@ -1,0 +1,17 @@
+Bluetooth Pairing Guide (Linux)
+
+1. Enable Bluetooth
+    sudo systemctl start bluetooth
+    bluetoothctl
+
+3. Pair and Connect
+    pair 00:23:00:01:60:9C
+    trust 00:23:00:01:60:9C
+    connect 00:23:00:01:60:9C
+
+4. Create Serial Port
+    Exit bluetoothctl, then bind the serial port:
+    sudo rfcomm bind 0 00:23:00:01:60:9C
+
+Now your device is available at /dev/rfcomm0.
+

@@ -1,0 +1,13 @@
+0 2down
+1 2up
+2 Background Noise
+3 anti
+4 backward
+5 clap
+6 clockwise
+7 down
+8 forward
+9 left
+10 right
+11 stop
+12 up
