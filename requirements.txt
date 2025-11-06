@@ -5,4 +5,3 @@ pynput==1.8.1
 pyserial==3.5
 sounddevice==0.5.3
 tflite_runtime==2.14.0
-
