@@ -82,6 +82,7 @@ VOICE_COMMANDS = {
     "clockwise": ('C', STOP_ARM3),
     "anti": ('V', STOP_ARM3),
     "stop": (STOP_ALL, None),
+    "clap": ('Q', None),
 }
 
 # TODO: Update this dictionary when new gesture commands are added
@@ -404,7 +405,7 @@ class UnifiedRobotController:
         if not self.voice_interpreter:
             print("❌ Cannot start voice mode: model not loaded")
             return
-        
+         
         self.voice_active = True
         self.voice_position = 0
         self.voice_buffer.fill(0)
