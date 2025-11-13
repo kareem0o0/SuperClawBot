@@ -20,8 +20,9 @@ import serial
 from PySide6.QtWidgets import *
 from PySide6.QtCore import Qt, QTimer, Signal, QObject
 from PySide6.QtGui import QImage, QPixmap, QFont , QColor ,QPalette
-
-
+import bluetooth
+import subprocess
+import re
 
 # ============================================================
 #                    CONFIGURATION SECTION
@@ -240,26 +241,55 @@ class RobotControllerBackend:
     # ========================================================
     #                  BLUETOOTH CONTROL
     # ========================================================
-    
-    def connect_bluetooth(self):
-        """Establish Bluetooth connection."""
+    def connect_bluetooth(self, port="/dev/rfcomm0", baud=9600):
+        """Open a serial port (used after rfcomm bind)."""
         try:
-            self.bt = serial.Serial(PORT, BAUD, timeout=1)
+            if self.bt and self.bt.is_open:
+                self.bt.close()
+
+            self.bt = serial.Serial(port, baud, timeout=1)
             time.sleep(2)
-            self.signals.log_signal.emit("Robot connected successfully!", "success")
+            self.signals.log_signal.emit(f"Connected to {port}", "success")
             self.signals.status_signal.emit("Connected")
             return True
         except Exception as e:
-            self.signals.log_signal.emit(f"Bluetooth error: {e}", "error")
+            self.signals.log_signal.emit(f"Connection error: {e}", "error")
+            self.signals.status_signal.emit("Disconnected")
+            return False
+        # ------------------------------------------------------------
+    # NEW METHOD – direct socket connection (no rfcomm)
+    # ------------------------------------------------------------
+    def connect_bluetooth_direct(self, mac_address, channel=1):
+        """Direct RFCOMM socket (no /dev/rfcomm0)."""
+        import socket
+        try:
+            sock = socket.socket(socket.AF_BLUETOOTH,
+                                 socket.SOCK_STREAM,
+                                 socket.BTPROTO_RFCOMM)
+            sock.connect((mac_address, channel))
+
+            # keep the same API as serial.Serial
+            self.bt = sock
+            self.signals.log_signal.emit(f"Direct socket to {mac_address}", "success")
+            self.signals.status_signal.emit("Connected")
+            return True
+        except Exception as e:
+            self.signals.log_signal.emit(f"Direct socket failed: {e}", "error")
             self.signals.status_signal.emit("Disconnected")
             return False
     
     def send_command(self, cmd):
-        """Send command to robot."""
+        """Send command – works for serial.Serial or socket."""
         with self.bt_lock:
-            if self.bt and self.bt.is_open:
-                self.bt.write(cmd.encode())
-                self.signals.log_signal.emit(f"Sent: {cmd}", "info")
+            if self.bt:
+                try:
+                    if hasattr(self.bt, 'write'):          # serial
+                        self.bt.write(cmd.encode())
+                    else:                                 # socket
+                        self.bt.send(cmd.encode())
+                    self.signals.log_signal.emit(f"Sent: {cmd}", "info")
+                except Exception as e:
+                    self.signals.log_signal.emit(f"Send error: {e}", "error")
     
     def stop_all_motors(self):
         """Stop all motors."""
@@ -590,7 +620,7 @@ class RobotControlUI(QMainWindow):
         self.init_ui()
         
         # Auto-connect
-        threading.Thread(target=self.backend.connect_bluetooth, daemon=True).start()
+        #threading.Thread(target=self.backend.connect_bluetooth, daemon=True).start()
     
     def init_ui(self):
         """Initialize UI components."""
@@ -709,6 +739,10 @@ class RobotControlUI(QMainWindow):
         btn_backward.pressed.connect(lambda: self.backend.send_command('B'))
         btn_backward.released.connect(lambda: self.backend.send_command(STOP_DRIVE))
         manual_layout.addWidget(btn_backward, 3, 1)
+
+                # ===== BLUETOOTH SETUP =====
+        bt_group = self.create_bluetooth_panel()
+        right_panel.addWidget(bt_group)
         
         # Arm controls
         arm_label = QLabel("Arms:")
@@ -779,6 +813,230 @@ class RobotControlUI(QMainWindow):
     # ========================================================
     #                  UI UPDATE METHODS
     # ========================================================
+        # ------------------------------------------------------------
+    # NEW METHOD – Bluetooth UI panel
+    # ------------------------------------------------------------
+    def create_bluetooth_panel(self):
+        """Create the Bluetooth setup panel."""
+        bt_group = QGroupBox("Bluetooth Setup")
+        bt_layout = QVBoxLayout()
+
+        # ---- status ------------------------------------------------
+        self.bt_status = QLabel("Status: Not connected")
+        self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
+        bt_layout.addWidget(self.bt_status)
+
+        # ---- scan buttons -----------------------------------------
+        btn_layout = QHBoxLayout()
+        scan_new_btn = QPushButton("Discover New Devices")
+        scan_new_btn.clicked.connect(self.scan_bluetooth_devices)
+        btn_layout.addWidget(scan_new_btn)
+
+        scan_paired_btn = QPushButton("Show Paired Devices")
+        scan_paired_btn.clicked.connect(self._get_paired_devices_thread)
+        btn_layout.addWidget(scan_paired_btn)
+        bt_layout.addLayout(btn_layout)
+
+        # ---- device list -------------------------------------------
+        self.bt_list = QListWidget()
+        self.bt_list.itemClicked.connect(self.select_bt_device)
+        bt_layout.addWidget(self.bt_list)
+
+        # ---- connection buttons ------------------------------------
+        connect_layout = QHBoxLayout()
+        self.connect_btn = QPushButton("Connect (rfcomm)")
+        self.connect_btn.setEnabled(False)
+        self.connect_btn.clicked.connect(self.connect_via_rfcomm)
+        connect_layout.addWidget(self.connect_btn)
+
+        self.connect_direct_btn = QPushButton("Direct Connect")
+        self.connect_direct_btn.setEnabled(False)
+        self.connect_direct_btn.clicked.connect(self.connect_via_socket)
+        connect_layout.addWidget(self.connect_direct_btn)
+        bt_layout.addLayout(connect_layout)
+
+        # ---- channel selector --------------------------------------
+        channel_layout = QHBoxLayout()
+        channel_layout.addWidget(QLabel("RFCOMM Channel:"))
+        self.channel_spin = QSpinBox()
+        self.channel_spin.setRange(1, 30)
+        self.channel_spin.setValue(1)
+        channel_layout.addWidget(self.channel_spin)
+        bt_layout.addLayout(channel_layout)
+
+        bt_group.setLayout(bt_layout)
+        return bt_group
+        # ============================================================
+    # BLUETOOTH SCAN / CONNECT METHODS
+    # ============================================================
+
+    # ---- discover new devices ------------------------------------
+    def scan_bluetooth_devices(self):
+        self.bt_list.clear()
+        self.bt_status.setText("Scanning for devices...")
+        self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+        self.add_log("Starting Bluetooth discovery...", "info")
+        threading.Thread(target=self._discover_devices_thread, daemon=True).start()
+
+    def _discover_devices_thread(self):
+        try:
+            self.add_log("Discovering (≈10 s)...", "info")
+            devices = bluetooth.discover_devices(
+                duration=8, lookup_names=True, flush_cache=True, lookup_class=False
+            )
+            self.discovered_devices = []
+
+            if not devices:
+                QTimer.singleShot(0, lambda: self._update_scan_result([]))
+                return
+
+            for addr, name in devices:
+                try:
+                    services = bluetooth.find_service(address=addr)
+                    channels = [svc["port"] for svc in services if "port" in svc]
+                except Exception:
+                    channels = []
+                self.discovered_devices.append({
+                    "name": name or "Unknown Device",
+                    "mac": addr,
+                    "channels": channels or [1],
+                })
+            QTimer.singleShot(0, lambda: self._update_scan_result(self.discovered_devices))
+        except Exception as e:
+            QTimer.singleShot(0, lambda: self._scan_error(str(e)))
+
+    # ---- show paired devices ------------------------------------
+
+    def _get_paired_devices_thread(self):
+        """Get paired devices using bluetoothctl (correct command)."""
+        try:
+            result = subprocess.run(
+                ["bluetoothctl", "paired-devices"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            devices = []
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    line = line.strip()
+                    if line.startswith("Device "):
+                        parts = line.split(" ", 2)
+                        mac = parts[1]
+                        name = parts[2] if len(parts) > 2 else "Unknown"
+                        devices.append({
+                            "name": name,
+                            "mac": mac,
+                            "channels": [1],
+                            "paired": True
+                        })
+            else:
+                self.add_log(f"bluetoothctl error: {result.stderr}", "error")
+
+            self.discovered_devices = devices
+            QTimer.singleShot(0, lambda: self._update_scan_result(devices))
+
+        except Exception as e:
+            QTimer.singleShot(0, lambda: self._scan_error(str(e)))
+    # ---- UI update helpers ---------------------------------------
+    def _update_scan_result(self, devices):
+        self.bt_list.clear()
+        if not devices:
+            self.bt_status.setText("No devices found")
+            self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
+            self.add_log("No devices. Pair via bluetoothctl first.", "warning")
+            return
+
+        for dev in devices:
+            ch = ",".join(map(str, dev["channels"]))
+            paired = " [PAIRED]" if dev.get("paired") else ""
+            self.bt_list.addItem(f"{dev['name']} ({dev['mac']}) [Ch: {ch}]{paired}")
+
+        self.bt_status.setText(f"Found {len(devices)} device(s)")
+        self.bt_status.setStyleSheet("color: #00ff88; font-weight: bold;")
+        self.add_log(f"Found {len(devices)} device(s)", "success")
+
+    def _scan_error(self, msg):
+        self.bt_status.setText("Scan failed")
+        self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
+        self.add_log(f"Scan error: {msg}", "error")
+        self.add_log("Check: sudo systemctl start bluetooth", "warning")
+
+    # ---- device selection ----------------------------------------
+    def select_bt_device(self, item):
+        text = item.text()
+        mac_match = re.search(r'\(([0-9A-F:]+)\)', text)
+        if not mac_match:
+            self.add_log("Could not parse MAC", "error")
+            return
+        self.selected_mac = mac_match.group(1)
+
+        ch_match = re.search(r'\[Ch: ([0-9,]+)\]', text)
+        if ch_match:
+            first_ch = ch_match.group(1).split(',')[0]
+            self.channel_spin.setValue(int(first_ch))
+
+        self.connect_btn.setEnabled(True)
+        self.connect_direct_btn.setEnabled(True)
+        self.bt_status.setText(f"Selected: {self.selected_mac}")
+        self.bt_status.setStyleSheet("color: #00ff88; font-weight: bold;")
+        self.add_log(f"Selected: {text}", "info")
+
+    # ---- rfcomm connection ---------------------------------------
+    def connect_via_rfcomm(self):
+        if not self.selected_mac:
+            self.add_log("No device selected!", "error")
+            return
+        self.bt_status.setText("Connecting via rfcomm...")
+        self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+        threading.Thread(target=self._connect_rfcomm_thread, daemon=True).start()
+
+    def _connect_rfcomm_thread(self):
+        mac = self.selected_mac
+        channel = self.channel_spin.value()
+        try:
+            subprocess.run(["sudo", "rfcomm", "release", "0"], capture_output=True, timeout=3)
+            time.sleep(0.5)
+            res = subprocess.run(
+                ["sudo", "rfcomm", "bind", "0", mac, str(channel)],
+                capture_output=True, text=True, timeout=10
+            )
+            if res.returncode == 0:
+                QTimer.singleShot(0, lambda: self.bt_status.setText(f"Bound to {mac}"))
+                QTimer.singleShot(0, lambda: self.bt_status.setStyleSheet("color: #00ff88; font-weight: bold;"))
+                QTimer.singleShot(500, lambda: self.backend.connect_bluetooth("/dev/rfcomm0", 9600))
+            else:
+                QTimer.singleShot(0, lambda: self._connection_failed(res.stderr or "unknown"))
+        except Exception as e:
+            QTimer.singleShot(0, lambda: self._connection_failed(str(e)))
+
+    # ---- direct socket connection --------------------------------
+    def connect_via_socket(self):
+        if not self.selected_mac:
+            self.add_log("No device selected!", "error")
+            return
+        self.bt_status.setText("Connecting via socket...")
+        self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+        channel = self.channel_spin.value()
+        threading.Thread(
+            target=self._connect_socket_thread,
+            args=(channel,),
+            daemon=True
+        ).start()
+
+    def _connect_socket_thread(self, channel):
+        success = self.backend.connect_bluetooth_direct(self.selected_mac, channel)
+        if success:
+            QTimer.singleShot(0, lambda: self.bt_status.setText(f"Connected to {self.selected_mac}"))
+            QTimer.singleShot(0, lambda: self.bt_status.setStyleSheet("color: #00ff88; font-weight: bold;"))
+        else:
+            QTimer.singleShot(0, lambda: self._connection_failed("socket failed"))
+
+    def _connection_failed(self, msg):
+        self.bt_status.setText("Connection failed")
+        self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
+        self.add_log(f"Connection failed: {msg}", "error")
     
     def add_log(self, message, level="info"):
         """Add log message with color coding."""
