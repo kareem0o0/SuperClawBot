@@ -128,30 +128,35 @@ class RobotControlUI(QMainWindow):
         )
     
     def _create_status_bar(self):
-        """Create status bar widget."""
-        status_group = QGroupBox("📊 Status")
-        layout = QHBoxLayout()
-        
-        self.connection_status = QLabel("🔴 Disconnected")
-        self.connection_status.setFont(QFont("Arial", 12, QFont.Bold))
-        layout.addWidget(self.connection_status)
-        
-        self.mode_display = QLabel(f"Mode: {MODE_KEYBOARD}")
-        self.mode_display.setFont(QFont("Arial", 12, QFont.Bold))
-        self.mode_display.setStyleSheet("color: #00ff88;")
-        layout.addWidget(self.mode_display)
-        
-        self.voice_indicator = QLabel("")
-        self.voice_indicator.setFont(QFont("Arial", 10))
-        layout.addWidget(self.voice_indicator)
-        
-        self.gesture_indicator = QLabel("")
-        self.gesture_indicator.setFont(QFont("Arial", 10))
-        layout.addWidget(self.gesture_indicator)
-        
-        layout.addStretch()
-        status_group.setLayout(layout)
-        return status_group
+            """Create status bar widget."""
+            status_group = QGroupBox("📊 Connection & Mode Status")
+            status_group.setMinimumHeight(80)  # Ensure enough space
+            layout = QHBoxLayout()
+            
+            self.connection_status = QLabel("🔴 Disconnected")
+            self.connection_status.setFont(QFont("Arial", 11, QFont.Bold))
+            self.connection_status.setMinimumWidth(150)
+            layout.addWidget(self.connection_status)
+            
+            self.mode_display = QLabel(f"Mode: {MODE_KEYBOARD}")
+            self.mode_display.setFont(QFont("Arial", 11, QFont.Bold))
+            self.mode_display.setStyleSheet("color: #00ff88;")
+            self.mode_display.setMinimumWidth(150)
+            layout.addWidget(self.mode_display)
+            
+            self.voice_indicator = QLabel("")
+            self.voice_indicator.setFont(QFont("Arial", 10))
+            self.voice_indicator.setMinimumWidth(120)
+            layout.addWidget(self.voice_indicator)
+            
+            self.gesture_indicator = QLabel("")
+            self.gesture_indicator.setFont(QFont("Arial", 10))
+            self.gesture_indicator.setMinimumWidth(120)
+            layout.addWidget(self.gesture_indicator)
+            
+            layout.addStretch()
+            status_group.setLayout(layout)
+            return status_group
     
     def _create_mode_selector(self):
         """Create mode selection widget."""

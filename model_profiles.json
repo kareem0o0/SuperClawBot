@@ -11,7 +11,7 @@
       ],
       "class_to_letter": {
         "start": "F",
-        "stop": "S"
+        "stop": "!"
       },
       "custom_gestures": {},
       "confidence_threshold": 0.7,
@@ -38,19 +38,19 @@
         "up"
       ],
       "class_to_letter": {
-        "2down": "a",
-        "2up": "s",
-        "Noise": "d",
-        "anti": "f",
-        "backward": "g",
-        "clap": "h",
-        "clockwise": "j",
-        "down": "k",
-        "forward": "l",
-        "left": "q",
-        "right": "w",
-        "stop": "e",
-        "up": "r"
+        "forward": "F",
+        "backward": "B",
+        "left": "L",
+        "right": "R",
+        "up": "Z",
+        "down": "A",
+        "2up": "S",
+        "2down": "X",
+        "clockwise": "C",
+        "anti": "V",
+        "clap": "Q",
+        "stop": "!",
+        "Noise": "."
       },
       "custom_gestures": {},
       "confidence_threshold": 0.7,

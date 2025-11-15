@@ -186,17 +186,20 @@ class GestureController(BaseController):
         self.signals.log_signal.emit("Gesture recognition active", "success")
     
     def stop(self):
-        """Stop gesture recognition."""
-        self.active = False
-        
-        if self.current_cmd:
-            self.executor.send_command('!')  # Stop all
-            self.current_cmd = None
-        
-        if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=1)
-        
-        self.signals.log_signal.emit("Gesture recognition stopped", "info")
+            """Stop gesture recognition."""
+            self.active = False
+            
+            if self.current_cmd:
+                self.executor.send_command('!')  # Stop all
+                self.current_cmd = None
+            
+            if self.thread and self.thread.is_alive():
+                self.thread.join(timeout=1)
+            
+            # Clear the video display by sending None frame
+            self.signals.frame_signal.emit(None)
+            
+            self.signals.log_signal.emit("Gesture recognition stopped", "info")
     
     def _recognition_loop(self):
         """Main gesture recognition loop with custom gesture support."""

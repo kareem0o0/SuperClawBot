@@ -45,85 +45,80 @@ class BluetoothPanel(QGroupBox):
         print("BluetoothPanel initialized")
     
     def _init_ui(self):
-        """Initialize UI components."""
-        layout = QVBoxLayout()
-        
-        # Status label
-        self.bt_status = QLabel("Status: Not connected")
-        self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
-        layout.addWidget(self.bt_status)
-        
-        # Virtual connection button
-        virtual_btn = QPushButton("🔧 Connect Virtual (Testing Mode)")
-        virtual_btn.setStyleSheet("background-color: #6495ED; font-weight: bold;")
-        virtual_btn.clicked.connect(self.connect_virtual)
-        layout.addWidget(virtual_btn)
-        
-        # Scan buttons
-        btn_layout = QHBoxLayout()
-        
-        scan_new_btn = QPushButton("Discover New Devices")
-        scan_new_btn.clicked.connect(self.scan_bluetooth_devices)
-        btn_layout.addWidget(scan_new_btn)
-        
-        scan_paired_btn = QPushButton("Show Paired Devices")
-        scan_paired_btn.clicked.connect(self.show_paired_devices)
-        btn_layout.addWidget(scan_paired_btn)
-        
-        layout.addLayout(btn_layout)
-        
-        # Device list
-        self.bt_list = QListWidget()
-        self.bt_list.itemClicked.connect(self.select_bt_device)
-        layout.addWidget(self.bt_list)
-        
-        # Connection buttons
-        connect_layout = QHBoxLayout()
-        
-        self.connect_btn = QPushButton("Connect (rfcomm)")
-        self.connect_btn.setEnabled(False)
-        self.connect_btn.clicked.connect(self.connect_via_rfcomm)
-        connect_layout.addWidget(self.connect_btn)
-        
-        self.connect_direct_btn = QPushButton("Direct Connect")
-        self.connect_direct_btn.setEnabled(False)
-        self.connect_direct_btn.clicked.connect(self.connect_via_socket)
-        connect_layout.addWidget(self.connect_direct_btn)
-        
-        layout.addLayout(connect_layout)
-        
-        # Channel selector
-        channel_layout = QHBoxLayout()
-        channel_layout.addWidget(QLabel("RFCOMM Channel:"))
-        
-        self.channel_spin = QSpinBox()
-        self.channel_spin.setRange(1, 30)
-        self.channel_spin.setValue(1)
-        channel_layout.addWidget(self.channel_spin)
-        
-        layout.addLayout(channel_layout)
-        self.setLayout(layout)
-    
-    def connect_virtual(self):
-        """Connect virtual Bluetooth for testing."""
-        print("connect_virtual called")
-        self.bt_status.setText("Connecting virtual...")
-        self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
-        
-        try:
-            success = self.backend.bluetooth.connect_virtual()
-            print(f"Virtual connection result: {success}")
+            """Initialize UI components."""
+            layout = QVBoxLayout()
             
-            if success:
-                self.bt_status.setText("VIRTUAL MODE - Simulation Active")
-                self.bt_status.setStyleSheet("color: #6495ED; font-weight: bold;")
-                self.signals.log_signal.emit("Virtual Bluetooth ready for testing", "success")
+            # Status label
+            self.bt_status = QLabel("Status: Not connected")
+            self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
+            layout.addWidget(self.bt_status)
+            
+            # Virtual connection button (toggle)
+            self.virtual_btn = QPushButton("🔧 Connect Virtual (Testing Mode)")
+            self.virtual_btn.setStyleSheet("background-color: #6495ED; font-weight: bold;")
+            self.virtual_btn.setCheckable(True)
+            self.virtual_btn.clicked.connect(self.toggle_virtual)
+            layout.addWidget(self.virtual_btn)
+            
+            # Scan buttons
+            btn_layout = QHBoxLayout()
+            
+            scan_new_btn = QPushButton("Discover New Devices")
+            scan_new_btn.clicked.connect(self.scan_bluetooth_devices)
+            btn_layout.addWidget(scan_new_btn)
+            
+            scan_paired_btn = QPushButton("Show Paired Devices")
+            scan_paired_btn.clicked.connect(self.show_paired_devices)
+            btn_layout.addWidget(scan_paired_btn)
+            
+            layout.addLayout(btn_layout)
+            
+            # Device list
+            self.bt_list = QListWidget()
+            self.bt_list.itemClicked.connect(self.select_bt_device)
+            layout.addWidget(self.bt_list)
+            
+            # Connection button (Direct only)
+            self.connect_btn = QPushButton("Connect to Device")
+            self.connect_btn.setEnabled(False)
+            self.connect_btn.clicked.connect(self.connect_via_socket)
+            layout.addWidget(self.connect_btn)
+            
+            self.setLayout(layout)
+    
+    def toggle_virtual(self):
+            """Toggle virtual Bluetooth connection."""
+            if self.virtual_btn.isChecked():
+                # Connect
+                print("Connecting virtual...")
+                self.bt_status.setText("Connecting virtual...")
+                self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+                
+                try:
+                    success = self.backend.bluetooth.connect_virtual()
+                    print(f"Virtual connection result: {success}")
+                    
+                    if success:
+                        self.bt_status.setText("VIRTUAL MODE - Simulation Active")
+                        self.bt_status.setStyleSheet("color: #6495ED; font-weight: bold;")
+                        self.signals.log_signal.emit("Virtual Bluetooth ready for testing", "success")
+                        self.virtual_btn.setText("🔌 Disconnect Virtual")
+                    else:
+                        self.bt_status.setText("Virtual connection failed")
+                        self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
+                        self.virtual_btn.setChecked(False)
+                except Exception as e:
+                    print(f"Error in toggle_virtual: {e}")
+                    self.signals.log_signal.emit(f"Virtual connection error: {e}", "error")
+                    self.virtual_btn.setChecked(False)
             else:
-                self.bt_status.setText("Virtual connection failed")
+                # Disconnect
+                print("Disconnecting virtual...")
+                self.backend.bluetooth.disconnect()
+                self.bt_status.setText("Status: Not connected")
                 self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
-        except Exception as e:
-            print(f"Error in connect_virtual: {e}")
-            self.signals.log_signal.emit(f"Virtual connection error: {e}", "error")
+                self.signals.log_signal.emit("Virtual Bluetooth disconnected", "info")
+                self.virtual_btn.setText("🔧 Connect Virtual (Testing Mode)")
     
     def scan_bluetooth_devices(self):
         """Start Bluetooth device discovery."""
@@ -293,78 +288,38 @@ class BluetoothPanel(QGroupBox):
         self.signals.log_signal.emit("Check: sudo systemctl start bluetooth", "warning")
     
     def select_bt_device(self, item):
-        """Handle device selection."""
-        text = item.text()
-        print(f"Device selected: {text}")
-        
-        mac_match = re.search(r'\(([0-9A-Fa-f:]+)\)', text)
-        if not mac_match:
-            self.signals.log_signal.emit("Could not parse MAC address", "error")
-            return
-        
-        self.selected_mac = mac_match.group(1)
-        print(f"Selected MAC: {self.selected_mac}")
-        
-        ch_match = re.search(r'\[Ch: ([0-9,]+)\]', text)
-        if ch_match:
-            first_ch = ch_match.group(1).split(',')[0]
-            self.channel_spin.setValue(int(first_ch))
-        
-        self.connect_btn.setEnabled(True)
-        self.connect_direct_btn.setEnabled(True)
-        self.bt_status.setText(f"Selected: {self.selected_mac}")
-        self.bt_status.setStyleSheet("color: #00ff88; font-weight: bold;")
-        self.signals.log_signal.emit(f"Selected: {text}", "info")
-    
-    def connect_via_rfcomm(self):
-        """Connect via rfcomm bind."""
-        if not self.selected_mac:
-            self.signals.log_signal.emit("No device selected!", "error")
-            return
-        
-        self.bt_status.setText("Connecting via rfcomm...")
-        self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
-        threading.Thread(target=self._connect_rfcomm_thread, daemon=True).start()
-    
-    def _connect_rfcomm_thread(self):
-        """Background thread for rfcomm connection."""
-        mac = self.selected_mac
-        channel = self.channel_spin.value()
-        try:
-            subprocess.run(["sudo", "rfcomm", "release", "0"], capture_output=True, timeout=3)
-            time.sleep(0.5)
+            """Handle device selection."""
+            text = item.text()
+            print(f"Device selected: {text}")
             
-            res = subprocess.run(
-                ["sudo", "rfcomm", "bind", "0", mac, str(channel)],
-                capture_output=True, text=True, timeout=10
-            )
+            mac_match = re.search(r'\(([0-9A-Fa-f:]+)\)', text)
+            if not mac_match:
+                self.signals.log_signal.emit("Could not parse MAC address", "error")
+                return
             
-            if res.returncode == 0:
-                # Update status on main thread
-                self.devices_found.emit([])  # Dummy signal to ensure we're on main thread
-                self.bt_status.setText(f"Bound to {mac}")
-                self.bt_status.setStyleSheet("color: #00ff88; font-weight: bold;")
-                time.sleep(0.5)
-                self.backend.bluetooth.connect_serial()
-            else:
-                self.connection_failed_signal.emit(res.stderr or "unknown")
-        except Exception as e:
-            self.connection_failed_signal.emit(str(e))
+            self.selected_mac = mac_match.group(1)
+            print(f"Selected MAC: {self.selected_mac}")
+            
+            self.connect_btn.setEnabled(True)
+            self.bt_status.setText(f"Selected: {self.selected_mac}")
+            self.bt_status.setStyleSheet("color: #00ff88; font-weight: bold;")
+            self.signals.log_signal.emit(f"Selected: {text}", "info")
     
     def connect_via_socket(self):
-        """Connect via direct socket."""
-        if not self.selected_mac:
-            self.signals.log_signal.emit("No device selected!", "error")
-            return
-        
-        self.bt_status.setText("Connecting via socket...")
-        self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
-        channel = self.channel_spin.value()
-        threading.Thread(
-            target=self._connect_socket_thread,
-            args=(channel,),
-            daemon=True
-        ).start()
+            """Connect via direct socket."""
+            if not self.selected_mac:
+                self.signals.log_signal.emit("No device selected!", "error")
+                return
+            
+            self.bt_status.setText("Connecting via socket...")
+            self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+            
+            # Use default channel 1
+            threading.Thread(
+                target=self._connect_socket_thread,
+                args=(1,),  # Default channel
+                daemon=True
+            ).start()
     
     def _connect_socket_thread(self, channel):
         """Background thread for socket connection."""

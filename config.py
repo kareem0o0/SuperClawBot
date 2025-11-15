@@ -66,7 +66,32 @@ MODE_GESTURE = "GESTURE"
 #                    CAMERA CONFIGURATION
 # ============================================================
 MAX_CAMERA_TRIES = 5
+# ============================================================
+#                    DEFAULT MAPPINGS
+# ============================================================
 
+# Default voice command mappings
+DEFAULT_VOICE_MAPPING = {
+    "forward": "F",
+    "backward": "B",
+    "left": "L",
+    "right": "R",
+    "up": "Z",
+    "down": "A",
+    "2up": "S",
+    "2down": "X",
+    "clockwise": "C",
+    "anti": "V",
+    "clap": "Q",
+    "stop": "!",
+    "Noise": ".",
+}
+
+# Default gesture command mappings
+DEFAULT_GESTURE_MAPPING = {
+    "start": "F",
+    "stop": "!",
+}
 # ============================================================
 #                    MODEL MANAGEMENT
 # ============================================================

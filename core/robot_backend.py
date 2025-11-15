@@ -57,8 +57,10 @@ class RobotControllerBackend:
             self.signals.log_signal.emit("Gesture control DISABLED", "warning")
     
     def _load_last_profiles(self):
-        """Load last used profiles on startup."""
-        # Load last voice profile
+        """Load last used profiles on startup or use defaults."""
+        from config import DEFAULT_VOICE_MAPPING, DEFAULT_GESTURE_MAPPING
+        
+        # Load last voice profile or use default
         if self.profile_manager.last_used_voice:
             try:
                 profile = self.profile_manager.get_profile(self.profile_manager.last_used_voice)
@@ -69,8 +71,13 @@ class RobotControllerBackend:
                     self.signals.log_signal.emit(f"Auto-loaded voice profile: {profile.name}", "info")
             except Exception as e:
                 self.signals.log_signal.emit(f"Failed to auto-load voice profile: {e}", "warning")
+        else:
+            # Apply default mapping if model exists
+            if self.voice_controller.model and self.voice_controller.model.is_loaded():
+                self.voice_controller.model.set_mapping(DEFAULT_VOICE_MAPPING)
+                self.signals.log_signal.emit("Using default voice mappings", "info")
         
-        # Load last gesture profile
+        # Load last gesture profile or use default
         if self.profile_manager.last_used_gesture:
             try:
                 profile = self.profile_manager.get_profile(self.profile_manager.last_used_gesture)
@@ -78,13 +85,16 @@ class RobotControllerBackend:
                     model_name = profile.model_path.split('/')[-1].replace('.tflite', '')
                     self.gesture_controller.load_new_model(model_name)
                     self.gesture_controller.model.set_mapping(profile.class_to_letter)
-                    # Load custom gestures
                     if profile.custom_gestures:
                         self.gesture_controller.custom_gesture_manager.from_dict(profile.custom_gestures)
                     self.signals.log_signal.emit(f"Auto-loaded gesture profile: {profile.name}", "info")
             except Exception as e:
                 self.signals.log_signal.emit(f"Failed to auto-load gesture profile: {e}", "warning")
-    
+        else:
+            # Apply default mapping if model exists
+            if self.gesture_controller.model and self.gesture_controller.model.is_loaded():
+                self.gesture_controller.model.set_mapping(DEFAULT_GESTURE_MAPPING)
+                self.signals.log_signal.emit("Using default gesture mappings", "info")
     def send_command(self, command):
         """Send command to robot."""
         self.executor.send_command(command)

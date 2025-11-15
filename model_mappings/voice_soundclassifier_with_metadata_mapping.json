@@ -1,15 +1,15 @@
 {
-  "2down": "a",
-  "2up": "s",
-  "Noise": "d",
-  "anti": "f",
-  "backward": "g",
-  "clap": "h",
-  "clockwise": "j",
-  "down": "k",
-  "forward": "l",
-  "left": "q",
-  "right": "w",
-  "stop": "e",
-  "up": "r"
+  "2down": "X",
+  "2up": "S",
+  "Noise": ".",
+  "anti": "V",
+  "backward": "B",
+  "clap": "Q",
+  "clockwise": "C",
+  "down": "A",
+  "forward": "F",
+  "left": "L",
+  "right": "R",
+  "stop": "!",
+  "up": "Z"
 }
