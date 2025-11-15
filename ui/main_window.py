@@ -392,3 +392,60 @@ class RobotControlUI(QMainWindow):
         app = QApplication.instance()
         new_theme = self.backend.theme_manager.toggle_theme(app)
         self.add_log(f"Theme changed to: {new_theme}", "success")
+    def _create_menu_bar(self):
+        """Create menu bar with model configuration and settings."""
+        menubar = self.menuBar()
+        
+        # Models menu
+        models_menu = menubar.addMenu("Models")
+        
+        config_action = QAction("Configure Models", self)
+        config_action.triggered.connect(self._open_model_config)
+        models_menu.addAction(config_action)
+        
+        profile_action = QAction("Manage Profiles", self)
+        profile_action.triggered.connect(self._open_profile_manager)
+        models_menu.addAction(profile_action)
+        
+        # Tools menu
+        tools_menu = menubar.addMenu("Tools")
+        
+        monitor_action = QAction("📡 Virtual BT Monitor", self)
+        monitor_action.triggered.connect(self._open_virtual_monitor)
+        tools_menu.addAction(monitor_action)
+        
+        # Settings menu
+        settings_menu = menubar.addMenu("Settings")
+        
+        theme_action = QAction("Toggle Theme", self)
+        theme_action.triggered.connect(self._toggle_theme)
+        settings_menu.addAction(theme_action)
+        
+        # Help menu
+        help_menu = menubar.addMenu("Help")
+        
+        about_action = QAction("About", self)
+        about_action.triggered.connect(self._show_about)
+        help_menu.addAction(about_action)
+    
+    def _open_virtual_monitor(self):
+        """Open virtual Bluetooth monitor window."""
+        if not self.backend.bluetooth.is_virtual():
+            from PySide6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self,
+                "Virtual Mode Required",
+                "Virtual Bluetooth Monitor requires Virtual Connection mode.\n\n"
+                "Would you like to switch to virtual mode now?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                self.backend.bluetooth.connect_virtual()
+            else:
+                return
+        
+        from .virtual_bt_monitor import VirtualBluetoothMonitor
+        monitor = VirtualBluetoothMonitor(self.backend, self)
+        monitor.show()

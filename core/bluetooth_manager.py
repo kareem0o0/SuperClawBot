@@ -1,5 +1,5 @@
 """
-Bluetooth connection manager.
+Bluetooth connection manager with virtual connection support.
 """
 
 import time
@@ -8,16 +8,17 @@ import socket
 import threading
 
 from config import BLUETOOTH_PORT, BLUETOOTH_BAUD
+from .virtual_bluetooth import VirtualBluetoothConnection
 
 
 class BluetoothManager:
-    """Manages Bluetooth connections via serial or socket."""
+    """Manages Bluetooth connections via serial, socket, or virtual."""
     
     def __init__(self, signal_emitter):
         self.signals = signal_emitter
         self.connection = None
         self.lock = threading.Lock()
-        self.connection_type = None  # 'serial' or 'socket'
+        self.connection_type = None  # 'serial', 'socket', or 'virtual'
     
     def connect_serial(self, port=BLUETOOTH_PORT, baud=BLUETOOTH_BAUD):
         """
@@ -79,6 +80,32 @@ class BluetoothManager:
             self.signals.status_signal.emit("Disconnected")
             return False
     
+    def connect_virtual(self):
+        """
+        Connect via virtual Bluetooth (simulation mode).
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.connection:
+                self.disconnect()
+            
+            self.connection = VirtualBluetoothConnection(self.signals)
+            self.connection_type = 'virtual'
+            
+            success = self.connection.connect()
+            if success:
+                self.signals.log_signal.emit("Virtual Bluetooth connected (SIMULATION)", "success")
+                self.signals.status_signal.emit("Connected")
+            
+            return success
+        
+        except Exception as e:
+            self.signals.log_signal.emit(f"Virtual connection failed: {e}", "error")
+            self.signals.status_signal.emit("Disconnected")
+            return False
+    
     def send(self, command):
         """
         Send command to robot.
@@ -95,6 +122,8 @@ class BluetoothManager:
                     self.connection.write(command.encode())
                 elif self.connection_type == 'socket':
                     self.connection.send(command.encode())
+                elif self.connection_type == 'virtual':
+                    self.connection.send(command)
                 
                 self.signals.log_signal.emit(f"Sent: {command}", "info")
             
@@ -106,10 +135,10 @@ class BluetoothManager:
         with self.lock:
             if self.connection:
                 try:
-                    if self.connection_type == 'serial':
+                    if self.connection_type in ['serial', 'socket']:
                         self.connection.close()
-                    elif self.connection_type == 'socket':
-                        self.connection.close()
+                    elif self.connection_type == 'virtual':
+                        self.connection.disconnect()
                 except Exception:
                     pass
                 
@@ -120,3 +149,7 @@ class BluetoothManager:
     def is_connected(self):
         """Check if connected."""
         return self.connection is not None
+    
+    def is_virtual(self):
+        """Check if using virtual connection."""
+        return self.connection_type == 'virtual'

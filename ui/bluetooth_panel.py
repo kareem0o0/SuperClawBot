@@ -259,3 +259,73 @@ class BluetoothPanel(QGroupBox):
         self.bt_status.setText("Connection failed")
         self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
         self.signals.log_signal.emit(f"Connection failed: {msg}", "error")
+    def create_bluetooth_panel(self):
+        """Create the Bluetooth setup panel."""
+        bt_group = QGroupBox("Bluetooth Setup")
+        bt_layout = QVBoxLayout()
+
+        # ---- status ------------------------------------------------
+        self.bt_status = QLabel("Status: Not connected")
+        self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
+        bt_layout.addWidget(self.bt_status)
+
+        # ---- virtual connection button -----------------------------
+        virtual_btn = QPushButton("🔧 Connect Virtual (Testing Mode)")
+        virtual_btn.setStyleSheet("background-color: #6495ED; font-weight: bold;")
+        virtual_btn.clicked.connect(self.connect_virtual)
+        bt_layout.addWidget(virtual_btn)
+
+        # ---- scan buttons -----------------------------------------
+        btn_layout = QHBoxLayout()
+        scan_new_btn = QPushButton("Discover New Devices")
+        scan_new_btn.clicked.connect(self.scan_bluetooth_devices)
+        btn_layout.addWidget(scan_new_btn)
+
+        scan_paired_btn = QPushButton("Show Paired Devices")
+        scan_paired_btn.clicked.connect(self._get_paired_devices_thread)
+        btn_layout.addWidget(scan_paired_btn)
+        bt_layout.addLayout(btn_layout)
+
+        # ---- device list -------------------------------------------
+        self.bt_list = QListWidget()
+        self.bt_list.itemClicked.connect(self.select_bt_device)
+        bt_layout.addWidget(self.bt_list)
+
+        # ---- connection buttons ------------------------------------
+        connect_layout = QHBoxLayout()
+        self.connect_btn = QPushButton("Connect (rfcomm)")
+        self.connect_btn.setEnabled(False)
+        self.connect_btn.clicked.connect(self.connect_via_rfcomm)
+        connect_layout.addWidget(self.connect_btn)
+
+        self.connect_direct_btn = QPushButton("Direct Connect")
+        self.connect_direct_btn.setEnabled(False)
+        self.connect_direct_btn.clicked.connect(self.connect_via_socket)
+        connect_layout.addWidget(self.connect_direct_btn)
+        bt_layout.addLayout(connect_layout)
+
+        # ---- channel selector --------------------------------------
+        channel_layout = QHBoxLayout()
+        channel_layout.addWidget(QLabel("RFCOMM Channel:"))
+        self.channel_spin = QSpinBox()
+        self.channel_spin.setRange(1, 30)
+        self.channel_spin.setValue(1)
+        channel_layout.addWidget(self.channel_spin)
+        bt_layout.addLayout(channel_layout)
+
+        bt_group.setLayout(bt_layout)
+        return bt_group
+    
+    def connect_virtual(self):
+        """Connect virtual Bluetooth for testing."""
+        self.bt_status.setText("Connecting virtual...")
+        self.bt_status.setStyleSheet("color: #ffaa00; font-weight: bold;")
+        success = self.backend.bluetooth.connect_virtual()
+        
+        if success:
+            self.bt_status.setText("VIRTUAL MODE - Simulation Active")
+            self.bt_status.setStyleSheet("color: #6495ED; font-weight: bold;")
+            self.signals.log_signal.emit("Virtual Bluetooth ready for testing", "success")
+        else:
+            self.bt_status.setText("Virtual connection failed")
+            self.bt_status.setStyleSheet("color: #ff4444; font-weight: bold;")
