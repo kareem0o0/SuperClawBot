@@ -23,29 +23,19 @@ class EmbeddingExtractor:
         """Load TFLite model and find embedding layer."""
         try:
             self.interpreter = tflite.Interpreter(self.model_path)
-            self.interpreter.allocate_tensors()
+            self.interpreter.allocate_tensors()  # CRITICAL: Allocate first
             
-            # Find the layer before the final classification layer
-            # Usually this is the last layer before softmax/output
+            # Get output details - use the main output layer
             output_details = self.interpreter.get_output_details()
-            tensor_details = self.interpreter.get_tensor_details()
             
-            # Get second-to-last tensor (embedding layer)
-            # For most models, embeddings are right before final output
-            if len(tensor_details) > 1:
-                # Find the largest non-output tensor (usually embeddings)
-                embedding_candidates = [t for t in tensor_details 
-                                       if t['index'] != output_details[0]['index']]
-                if embedding_candidates:
-                    # Sort by size and take the largest
-                    embedding_candidates.sort(key=lambda x: np.prod(x['shape']), reverse=True)
-                    self.embedding_layer_index = embedding_candidates[0]['index']
+            # For most models, just use the output layer itself as "embeddings"
+            # This works fine for similarity comparison
+            self.embedding_layer_index = output_details[0]['index']
             
-            # Fallback: use output layer (will still work, just less optimal)
-            if self.embedding_layer_index is None:
-                self.embedding_layer_index = output_details[0]['index']
+            print(f"EmbeddingExtractor loaded successfully, using output index: {self.embedding_layer_index}")
         
         except Exception as e:
+            print(f"Failed to load embedding extractor: {e}")
             raise RuntimeError(f"Failed to load embedding extractor: {e}")
     
     def preprocess_frame(self, frame):
@@ -84,21 +74,27 @@ class EmbeddingExtractor:
             Embedding vector as numpy array
         """
         if self.interpreter is None:
+            print("Interpreter is None!")
             return None
         
-        # Run inference
-        inp = self.interpreter.get_input_details()[0]
+        try:
+            # Run inference
+            inp = self.interpreter.get_input_details()[0]
+            
+            self.interpreter.set_tensor(inp['index'], input_data)
+            self.interpreter.invoke()
+            
+            # Get embedding (output layer)
+            embedding = self.interpreter.get_tensor(self.embedding_layer_index)
+            
+            # Flatten to 1D vector
+            embedding_flat = embedding.flatten()
+            
+            return embedding_flat
         
-        self.interpreter.set_tensor(inp['index'], input_data)
-        self.interpreter.invoke()
-        
-        # Get embedding
-        embedding = self.interpreter.get_tensor(self.embedding_layer_index)
-        
-        # Flatten to 1D vector
-        embedding_flat = embedding.flatten()
-        
-        return embedding_flat
+        except Exception as e:
+            print(f"Error in extract_embedding: {e}")
+            return None
     
     def extract_from_frame(self, frame):
         """
@@ -161,6 +157,9 @@ class CustomGestureManager:
         Returns:
             Tuple of (gesture_name, letter, similarity) or (None, None, 0)
         """
+        if embedding is None:
+            return None, None, 0
+        
         best_match = None
         best_similarity = 0
         

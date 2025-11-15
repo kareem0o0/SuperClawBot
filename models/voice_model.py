@@ -19,15 +19,34 @@ class VoiceModel:
         self.labels = []
         self.buffer_size = 0
         self.class_to_letter = {}  # Mapping from class name to letter
-        self._load_model()
+        
+        # Try to load model
+        try:
+            self._load_model()
+        except FileNotFoundError as e:
+            # Model files not found - this is OK, user can load later
+            print(f"Voice model not found: {e}")
+        except Exception as e:
+            # Other errors
+            print(f"Error loading voice model: {e}")
     
     def _load_model(self):
         """Load TFLite model and labels."""
-        model_path = resource_path(os.path.join(self.model_dir, f"{self.model_name}.tflite"))
-        labels_path = resource_path(os.path.join(self.model_dir, f"{self.model_name}_labels.txt"))
+        # Build paths
+        if os.path.isabs(self.model_name):
+            # Absolute path provided
+            model_path = self.model_name
+            labels_path = self.model_name.replace('.tflite', '_labels.txt')
+        else:
+            # Relative path - use resource_path
+            model_path = resource_path(os.path.join(self.model_dir, f"{self.model_name}.tflite"))
+            labels_path = resource_path(os.path.join(self.model_dir, f"{self.model_name}_labels.txt"))
         
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Voice model not found: {model_path}")
+        
+        if not os.path.exists(labels_path):
+            raise FileNotFoundError(f"Voice labels not found: {labels_path}")
         
         try:
             self.interpreter = tflite.Interpreter(model_path)

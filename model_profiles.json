@@ -5,8 +5,53 @@
       "model_type": "gesture",
       "model_path": "resources/gesture_classifier/model.tflite",
       "labels_path": "resources/gesture_classifier/model_labels.txt",
-      "classes": [],
-      "class_to_letter": {},
+      "classes": [
+        "start",
+        "stop"
+      ],
+      "class_to_letter": {
+        "start": "F",
+        "stop": "S"
+      },
+      "custom_gestures": {},
+      "confidence_threshold": 0.7,
+      "settings": {}
+    },
+    "soundclassifier_with_metadata": {
+      "name": "soundclassifier_with_metadata",
+      "model_type": "voice",
+      "model_path": "resources/sound_classifier/soundclassifier_with_metadata.tflite",
+      "labels_path": "resources/sound_classifier/soundclassifier_with_metadata_labels.txt",
+      "classes": [
+        "2down",
+        "2up",
+        "Noise",
+        "anti",
+        "backward",
+        "clap",
+        "clockwise",
+        "down",
+        "forward",
+        "left",
+        "right",
+        "stop",
+        "up"
+      ],
+      "class_to_letter": {
+        "2down": "a",
+        "2up": "s",
+        "Noise": "d",
+        "anti": "f",
+        "backward": "g",
+        "clap": "h",
+        "clockwise": "j",
+        "down": "k",
+        "forward": "l",
+        "left": "q",
+        "right": "w",
+        "stop": "e",
+        "up": "r"
+      },
       "custom_gestures": {},
       "confidence_threshold": 0.7,
       "settings": {}

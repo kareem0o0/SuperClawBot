@@ -5,6 +5,7 @@ Gesture control implementation with custom gesture support.
 import time
 import threading
 import cv2
+import os
 
 from .base_controller import BaseController
 from models import GestureModel
@@ -12,6 +13,7 @@ from config import GESTURE_CONFIDENCE_THRESHOLD, GESTURE_COOLDOWN
 from utils.camera import find_camera
 from core.model_manager import ModelManager
 from core.embedding_extractor import EmbeddingExtractor, CustomGestureManager
+from utils.resource_loader import resource_path
 
 
 class GestureController(BaseController):
@@ -30,7 +32,7 @@ class GestureController(BaseController):
         try:
             self._load_model("model")
         except Exception as e:
-            self.signals.log_signal.emit(f"Gesture model error: {e}", "error")
+            self.signals.log_signal.emit(f"Default gesture model not found - load one via Models menu", "warning")
         
         self.camera = find_camera()
         if not self.camera:
@@ -49,11 +51,26 @@ class GestureController(BaseController):
         """Load a gesture model by name."""
         try:
             self.model = GestureModel(model_name)
+            
+            # Check if model actually loaded
+            if not self.model.is_loaded():
+                self.model = None
+                return False
+            
             self.current_model_name = model_name
             
             # Initialize embedding extractor for custom gestures
-            model_path = self.model.model_dir + f"/{model_name}.tflite"
-            self.embedding_extractor = EmbeddingExtractor(model_path)
+            # Build the correct path
+            model_path = resource_path(os.path.join(self.model.model_dir, f"{model_name}.tflite"))
+            
+            print(f"Initializing EmbeddingExtractor with path: {model_path}")
+            
+            try:
+                self.embedding_extractor = EmbeddingExtractor(model_path)
+                print("EmbeddingExtractor initialized successfully")
+            except Exception as e:
+                print(f"Failed to initialize EmbeddingExtractor: {e}")
+                self.embedding_extractor = None
             
             # Load or create mapping
             mapping = self.model_manager.load_mapping(model_name, "gesture")
@@ -73,6 +90,10 @@ class GestureController(BaseController):
             return True
         except Exception as e:
             self.signals.log_signal.emit(f"Failed to load gesture model: {e}", "error")
+            print(f"Error in _load_model: {e}")
+            import traceback
+            traceback.print_exc()
+            self.model = None
             return False
     
     def load_new_model(self, model_name):
@@ -196,16 +217,20 @@ class GestureController(BaseController):
                 is_custom = False
                 
                 if self.embedding_extractor:
-                    embedding = self.embedding_extractor.extract_from_frame(rgb_frame)
-                    custom_name, custom_letter, custom_conf = self.custom_gesture_manager.predict(
-                        embedding, self.custom_gesture_threshold
-                    )
-                    
-                    if custom_name:
-                        detected_class = f"[CUSTOM] {custom_name}"
-                        detected_letter = custom_letter
-                        confidence = custom_conf
-                        is_custom = True
+                    try:
+                        embedding = self.embedding_extractor.extract_from_frame(rgb_frame)
+                        if embedding is not None:
+                            custom_name, custom_letter, custom_conf = self.custom_gesture_manager.predict(
+                                embedding, self.custom_gesture_threshold
+                            )
+                            
+                            if custom_name:
+                                detected_class = f"[CUSTOM] {custom_name}"
+                                detected_letter = custom_letter
+                                confidence = custom_conf
+                                is_custom = True
+                    except Exception as e:
+                        print(f"Custom gesture error: {e}")
                 
                 # If no custom gesture, use regular model
                 if not is_custom:
@@ -216,10 +241,12 @@ class GestureController(BaseController):
                     confidence = conf
                 
                 # Annotate frame
-                cv2.putText(frame, f"Class: {detected_class}", (10, 30),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                cv2.putText(frame, f"Letter: {detected_letter}", (10, 65),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                if detected_class:
+                    cv2.putText(frame, f"Class: {detected_class}", (10, 30),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                if detected_letter:
+                    cv2.putText(frame, f"Letter: {detected_letter}", (10, 65),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
                 cv2.putText(frame, f"Conf: {confidence:.2f}", (10, 100),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                 
@@ -241,6 +268,9 @@ class GestureController(BaseController):
             
             except Exception as e:
                 self.signals.log_signal.emit(f"Gesture error: {e}", "error")
+                print(f"Recognition loop error: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
     
     def _handle_gesture(self, gesture, letter, confidence):

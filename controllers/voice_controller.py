@@ -27,7 +27,7 @@ class VoiceController(BaseController):
         try:
             self._load_model("soundclassifier_with_metadata")
         except Exception as e:
-            self.signals.log_signal.emit(f"Voice model error: {e}", "error")
+            self.signals.log_signal.emit(f"Default voice model not found - load one via Models menu", "warning")
         
         self.stream = None
         self.position = 0
@@ -39,6 +39,12 @@ class VoiceController(BaseController):
         """Load a voice model by name."""
         try:
             self.model = VoiceModel(model_name)
+            
+            # Check if model actually loaded
+            if not self.model.is_loaded():
+                self.model = None
+                return False
+            
             self.current_model_name = model_name
             self.buffer = np.zeros(self.model.buffer_size, dtype=np.float32)
             
@@ -60,6 +66,7 @@ class VoiceController(BaseController):
             return True
         except Exception as e:
             self.signals.log_signal.emit(f"Failed to load voice model: {e}", "error")
+            self.model = None
             return False
     
     def load_new_model(self, model_name):
@@ -139,7 +146,7 @@ class VoiceController(BaseController):
     
     def _audio_callback(self, indata, frames, time_info, status):
         """Process audio stream."""
-        if not self.active:
+        if not self.active or not self.model:
             return
         
         chunk = indata[:, 0].copy()

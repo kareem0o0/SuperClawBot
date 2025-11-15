@@ -41,7 +41,7 @@ class ModelConfigDialog(QDialog):
     
     def _create_voice_tab(self):
         """Create voice model configuration tab."""
-        widget =QWidget()
+        widget = QWidget()
         layout = QVBoxLayout()
         
         # Load new model section
@@ -103,6 +103,28 @@ class ModelConfigDialog(QDialog):
         load_group.setLayout(load_layout)
         layout.addWidget(load_group)
         
+        # Custom gestures section
+        custom_group = QGroupBox("Custom Gestures (Auto-Learn)")
+        custom_layout = QVBoxLayout()
+        
+        custom_btn_layout = QHBoxLayout()
+        
+        add_custom_btn = QPushButton("➕ Add Custom Gesture")
+        add_custom_btn.clicked.connect(self._add_custom_gesture)
+        custom_btn_layout.addWidget(add_custom_btn)
+        
+        remove_custom_btn = QPushButton("➖ Remove Custom Gesture")
+        remove_custom_btn.clicked.connect(self._remove_custom_gesture)
+        custom_btn_layout.addWidget(remove_custom_btn)
+        
+        custom_layout.addLayout(custom_btn_layout)
+        
+        self.custom_gesture_list = QListWidget()
+        custom_layout.addWidget(self.custom_gesture_list)
+        
+        custom_group.setLayout(custom_layout)
+        layout.addWidget(custom_group)
+        
         # Current model section
         current_group = QGroupBox("Current Gesture Model Mapping")
         current_layout = QVBoxLayout()
@@ -127,6 +149,7 @@ class ModelConfigDialog(QDialog):
         
         # Load current mapping
         self._load_gesture_mapping()
+        self._refresh_custom_gestures()
         
         widget.setLayout(layout)
         return widget
@@ -187,13 +210,20 @@ class ModelConfigDialog(QDialog):
             
             # Load model into controller
             if model_type == "voice":
-                self.backend.voice_controller.load_new_model(model_name)
-                self._load_voice_mapping()
+                success = self.backend.voice_controller.load_new_model(model_name)
+                if success:
+                    self._load_voice_mapping()
+                    QMessageBox.information(self, "Success", f"Voice model '{model_name}' loaded successfully!")
+                else:
+                    QMessageBox.warning(self, "Error", "Failed to load voice model into controller.")
             else:
-                self.backend.gesture_controller.load_new_model(model_name)
-                self._load_gesture_mapping()
-            
-            QMessageBox.information(self, "Success", f"Model '{model_name}' loaded successfully!")
+                success = self.backend.gesture_controller.load_new_model(model_name)
+                if success:
+                    self._load_gesture_mapping()
+                    self._refresh_custom_gestures()
+                    QMessageBox.information(self, "Success", f"Gesture model '{model_name}' loaded successfully!")
+                else:
+                    QMessageBox.warning(self, "Error", "Failed to load gesture model into controller.")
     
     def _edit_mapping_dialog(self, labels, current_mapping, model_type):
         """Show dialog to edit class-to-letter mappings."""
@@ -331,11 +361,16 @@ class ModelConfigDialog(QDialog):
         self.gesture_model_label.setText(f"Model: {model_name}")
         
         mapping = self.backend.gesture_controller.get_current_mapping()
-        labels = self.backend.gesture_controller.model.get_labels()
         
-        self.gesture_table.setRowCount(len(labels))
+        # Get all classes (regular + custom)
+        regular_labels = self.backend.gesture_controller.model.get_labels()
+        custom_gestures = self.backend.gesture_controller.get_custom_gestures()
         
-        for i, label in enumerate(labels):
+        all_labels = list(regular_labels) + [f"[CUSTOM] {g}" for g in custom_gestures]
+        
+        self.gesture_table.setRowCount(len(all_labels))
+        
+        for i, label in enumerate(all_labels):
             # Class name
             class_item = QTableWidgetItem(label)
             class_item.setFlags(class_item.flags() & ~Qt.ItemIsEditable)
@@ -375,12 +410,12 @@ class ModelConfigDialog(QDialog):
             return
         
         # Extract mapping from table
-        labels = controller.model.get_labels()
         mapping = {}
         
-        for i, label in enumerate(labels):
+        for i in range(table.rowCount()):
+            class_name = table.item(i, 0).text()
             letter = table.item(i, 1).text().strip()
-            mapping[label] = letter
+            mapping[class_name] = letter
         
         # Validate
         is_valid, dup_letter, dup_classes = self.model_manager.validate_mapping(mapping)
@@ -402,74 +437,6 @@ class ModelConfigDialog(QDialog):
             QMessageBox.information(self, "Success", "Mapping saved successfully!")
         else:
             QMessageBox.critical(self, "Error", "Failed to save mapping.")
-    def _create_gesture_tab(self):
-        """Create gesture model configuration tab."""
-        widget = QWidget()
-        layout = QVBoxLayout()
-        
-        # Load new model section
-        load_group = QGroupBox("Load New Gesture Model")
-        load_layout = QVBoxLayout()
-        
-        btn_layout = QHBoxLayout()
-        self.gesture_load_btn = QPushButton("Load .tflite and labels.txt")
-        self.gesture_load_btn.clicked.connect(lambda: self._load_new_model("gesture"))
-        btn_layout.addWidget(self.gesture_load_btn)
-        load_layout.addLayout(btn_layout)
-        
-        load_group.setLayout(load_layout)
-        layout.addWidget(load_group)
-        
-        # Custom gestures section
-        custom_group = QGroupBox("Custom Gestures (Auto-Learn)")
-        custom_layout = QVBoxLayout()
-        
-        custom_btn_layout = QHBoxLayout()
-        
-        add_custom_btn = QPushButton("➕ Add Custom Gesture")
-        add_custom_btn.clicked.connect(self._add_custom_gesture)
-        custom_btn_layout.addWidget(add_custom_btn)
-        
-        remove_custom_btn = QPushButton("➖ Remove Custom Gesture")
-        remove_custom_btn.clicked.connect(self._remove_custom_gesture)
-        custom_btn_layout.addWidget(remove_custom_btn)
-        
-        custom_layout.addLayout(custom_btn_layout)
-        
-        self.custom_gesture_list = QListWidget()
-        custom_layout.addWidget(self.custom_gesture_list)
-        
-        custom_group.setLayout(custom_layout)
-        layout.addWidget(custom_group)
-        
-        # Current model section
-        current_group = QGroupBox("Current Gesture Model Mapping")
-        current_layout = QVBoxLayout()
-        
-        self.gesture_model_label = QLabel("No model loaded")
-        current_layout.addWidget(self.gesture_model_label)
-        
-        self.gesture_table = QTableWidget()
-        self.gesture_table.setColumnCount(3)
-        self.gesture_table.setHorizontalHeaderLabels(["Class Name", "Assigned Letter", "Action"])
-        self.gesture_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.gesture_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.gesture_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        current_layout.addWidget(self.gesture_table)
-        
-        save_btn = QPushButton("Save Mapping")
-        save_btn.clicked.connect(lambda: self._save_mapping("gesture"))
-        current_layout.addWidget(save_btn)
-        
-        current_group.setLayout(current_layout)
-        layout.addWidget(current_group)
-        
-        # Load current mapping
-        self._load_gesture_mapping()
-        self._refresh_custom_gestures()
-        
-        widget.setLayout(layout)
-        return widget
     
     def _add_custom_gesture(self):
         """Open dialog to add custom gesture."""
@@ -478,8 +445,7 @@ class ModelConfigDialog(QDialog):
         controller = self.backend.gesture_controller
         
         if not controller.model or not controller.camera:
-            QMessageBox.warning(self, "Not Available", 
-                              "Gesture model and camera must be loaded first.")
+            QMessageBox.warning(self, "Not Available","Gesture model and camera must be loaded first.")
             return
         
         # Get existing letters
