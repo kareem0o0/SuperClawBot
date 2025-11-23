@@ -157,6 +157,23 @@ class ModelManager:
             # Get model name from tflite filename
             model_name = Path(tflite_path).stem
             
+            # Check against default model names to prevent overwriting
+            from config import DEFAULT_GESTURE_MODEL, DEFAULT_VOICE_MODEL
+            
+            is_default_name = False
+            if model_type == 'gesture' and model_name == DEFAULT_GESTURE_MODEL:
+                is_default_name = True
+            elif model_type == 'voice' and model_name == DEFAULT_VOICE_MODEL:
+                is_default_name = True
+            
+            # If it matches default or file already exists, append timestamp
+            dest_tflite = os.path.join(destination_dir, f"{model_name}.tflite")
+            if is_default_name or os.path.exists(dest_tflite):
+                import time
+                timestamp = int(time.time())
+                model_name = f"{model_name}_{timestamp}"
+                self.signals.log_signal.emit(f"Model renamed to {model_name} to prevent overwriting", "info")
+            
             # Copy files
             dest_tflite = os.path.join(destination_dir, f"{model_name}.tflite")
             dest_labels = os.path.join(destination_dir, f"{model_name}_labels.txt")
