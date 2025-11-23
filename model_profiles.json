@@ -56,39 +56,20 @@
       "confidence_threshold": 0.7,
       "settings": {}
     },
-    "soundclassifier_with_metadata_1763927016": {
-      "name": "soundclassifier_with_metadata_1763927016",
+    "soundclassifier_with_metadata_1763928417": {
+      "name": "soundclassifier_with_metadata_1763928417",
       "model_type": "voice",
-      "model_path": "resources/sound_classifier/soundclassifier_with_metadata_1763927016.tflite",
-      "labels_path": "resources/sound_classifier/soundclassifier_with_metadata_1763927016_labels.txt",
+      "model_path": "resources/sound_classifier/soundclassifier_with_metadata_1763928417.tflite",
+      "labels_path": "resources/sound_classifier/soundclassifier_with_metadata_1763928417_labels.txt",
       "classes": [
         "Noise",
         "no",
         "yes"
       ],
       "class_to_letter": {
-        "Noise": "r",
-        "no": "d",
-        "yes": "f"
-      },
-      "custom_gestures": {},
-      "confidence_threshold": 0.7,
-      "settings": {}
-    },
-    "soundclassifier_with_metadata_1763927126": {
-      "name": "soundclassifier_with_metadata_1763927126",
-      "model_type": "voice",
-      "model_path": "resources/sound_classifier/soundclassifier_with_metadata_1763927126.tflite",
-      "labels_path": "resources/sound_classifier/soundclassifier_with_metadata_1763927126_labels.txt",
-      "classes": [
-        "Noise",
-        "no",
-        "yes"
-      ],
-      "class_to_letter": {
-        "Noise": "q",
-        "no": "w",
-        "yes": "e"
+        "Noise": "l",
+        "no": "n",
+        "yes": "y"
       },
       "custom_gestures": {},
       "confidence_threshold": 0.7,

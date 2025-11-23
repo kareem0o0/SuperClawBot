@@ -119,7 +119,8 @@ class ConfigurationDialog(QDialog):
         success = self.config_manager.save_configuration(
             name,
             self.backend.gesture_controller,
-            self.backend.voice_controller
+            self.backend.voice_controller,
+            self.backend.profile_manager
         )
         
         if success:
@@ -158,7 +159,8 @@ class ConfigurationDialog(QDialog):
         success = self.config_manager.load_configuration(
             filepath,
             self.backend.gesture_controller,
-            self.backend.voice_controller
+            self.backend.voice_controller,
+            self.backend.profile_manager
         )
         
         if success:
