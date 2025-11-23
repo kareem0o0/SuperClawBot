@@ -51,20 +51,7 @@ class RobotControlUI(QMainWindow):
         self.setCentralWidget(central)
         main_layout = QHBoxLayout(central)
         
-        # Left panel: Video + Status
-        left_panel = QVBoxLayout()
-        
-        # Video display
-        self.video_display = VideoDisplay()
-        left_panel.addWidget(self.video_display)
-        
-        # Status bar
-        status_group = self._create_status_bar()
-        left_panel.addWidget(status_group)
-        
-        main_layout.addLayout(left_panel, 2)
-        
-        # Right panel: Controls
+        # Right panel: Controls (now on the left side)
         right_panel = QVBoxLayout()
         
         # Mode selection
@@ -89,6 +76,19 @@ class RobotControlUI(QMainWindow):
         
         right_panel.addStretch()
         main_layout.addLayout(right_panel, 1)
+        
+        # Left panel: Video + Status (now on the right side)
+        left_panel = QVBoxLayout()
+        
+        # Video display
+        self.video_display = VideoDisplay()
+        left_panel.addWidget(self.video_display)
+        
+        # Status bar
+        status_group = self._create_status_bar()
+        left_panel.addWidget(status_group)
+        
+        main_layout.addLayout(left_panel, 2)
     
     def _open_model_config(self):
         """Open model configuration dialog."""

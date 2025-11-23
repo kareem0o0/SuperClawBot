@@ -2,28 +2,87 @@
 Manual control panel UI component.
 """
 
-from PySide6.QtWidgets import QGroupBox, QGridLayout, QPushButton, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QGroupBox, QGridLayout, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QWidget
 from PySide6.QtGui import QFont
 from PySide6.QtCore import Qt
 
 from config import STOP_DRIVE, STOP_ARM1, STOP_ARM2, STOP_ARM3, STOP_ALL, TOGGLE_LED
+from .editable_label import EditableLabel
 
 
 class ControlPanel(QGroupBox):
     """Manual control buttons for robot."""
     
     def __init__(self, backend, parent=None):
-        super().__init__("🕹️ Manual Controls", parent)
+        super().__init__("", parent)  # Empty title, we'll add custom widget
         self.backend = backend
         self.all_buttons = []  # Store all button references
+        
+        # Create title widget with edit button
+        title_widget = QWidget()
+        title_layout = QHBoxLayout()
+        title_layout.setContentsMargins(5, 5, 5, 5)
+        title_layout.setSpacing(5)
+        
+        # Title label (editable)
+        self.title_label = EditableLabel("🕹️ Manual Controls", "manual_controls_title", bold=True, font_size=14)
+        title_layout.addWidget(self.title_label)
+        
+        # Push button to the right
+        title_layout.addStretch()
+        
+        # Small edit/apply button (pen icon without background)
+        self.edit_mode_btn = QPushButton("✏️")
+        self.edit_mode_btn.setMaximumWidth(30)
+        self.edit_mode_btn.setMaximumHeight(25)
+        self.edit_mode_btn.setToolTip("Edit labels")
+        self.edit_mode_active = False  # Track edit mode state manually
+        self.edit_mode_btn.setStyleSheet("""
+            QPushButton {
+                border: none;
+                background: transparent;
+                font-size: 16px;
+                padding: 0.5px;
+            }
+            QPushButton:hover {
+                background: rgba(0, 0, 0, 0.1);
+                border-radius: 3px;
+            }
+        """)
+        self.edit_mode_btn.clicked.connect(self._toggle_edit_mode)
+        title_layout.addWidget(self.edit_mode_btn)
+        
+        title_widget.setLayout(title_layout)
+        
+        # Set the title widget
+        self.setTitle("")  # Clear default title
+        
         self._init_ui()
+        
+        # Add title widget at the top of the layout
+        layout = self.layout()
+        layout.insertWidget(0, title_widget)
     
     def _init_ui(self):
         """Initialize UI components."""
         layout = QVBoxLayout()
         
-        # Drive controls section
-        drive_group = QGroupBox("🚗 Drive Controls")
+        # Store all editable labels
+        self.editable_labels = []
+        
+        # Drive controls section with editable title
+        drive_title_widget = QWidget()
+        drive_title_layout = QHBoxLayout()
+        drive_title_layout.setContentsMargins(0, 0, 0, 0)
+        self.drive_label = EditableLabel("🚗 Drive Controls", "drive_controls_title", bold=True, font_size=12)
+        self.editable_labels.append(self.drive_label)
+        drive_title_layout.addWidget(self.drive_label)
+        drive_title_widget.setLayout(drive_title_layout)
+        
+        drive_group = QGroupBox()
+        drive_main_layout = QVBoxLayout()
+        drive_main_layout.addWidget(drive_title_widget)
+        
         drive_layout = QGridLayout()
         
         btn_forward = QPushButton("⬆️ Forward")
@@ -39,7 +98,7 @@ class ControlPanel(QGroupBox):
         self.all_buttons.append(btn_left)
         
         btn_stop = QPushButton("⏹️ STOP")
-        btn_stop.setStyleSheet("background: #ff4444; font-weight: bold; color: white;")
+        btn_stop.setStyleSheet("background: #f11444; font-weight: bold; color: white;")
         btn_stop.clicked.connect(lambda: self.backend.send_command(STOP_ALL))
         drive_layout.addWidget(btn_stop, 1, 1)
         self.all_buttons.append(btn_stop)
@@ -56,53 +115,63 @@ class ControlPanel(QGroupBox):
         drive_layout.addWidget(btn_backward, 2, 1)
         self.all_buttons.append(btn_backward)
         
-        drive_group.setLayout(drive_layout)
+        drive_main_layout.addLayout(drive_layout)
+        drive_group.setLayout(drive_main_layout)
         layout.addWidget(drive_group)
         
-        # Arm controls section
-        arm_group = QGroupBox("🦾 Arm Controls")
-        arm_group.setCheckable(True)
-        arm_group.setChecked(True)  # Start expanded (checked = expanded)
+        # Arm controls section with editable title
+        arm_title_widget = QWidget()
+        arm_title_layout = QHBoxLayout()
+        arm_title_layout.setContentsMargins(0, 0, 0, 0)
+        self.arm_label = EditableLabel("🦾 Arm Controls", "arm_controls_title", bold=True, font_size=12)
+        self.editable_labels.append(self.arm_label)
+        arm_title_layout.addWidget(self.arm_label)
+        arm_title_widget.setLayout(arm_title_layout)
+        
+        arm_group = QGroupBox()
+        arm_main_layout = QVBoxLayout()
+        arm_main_layout.addWidget(arm_title_widget)
+        
         arm_layout = QGridLayout()
         
-        # Arm 1 - Column 0
-        arm1_label = QLabel("Arm 1")
-        arm1_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        arm_layout.addWidget(arm1_label, 0, 0)
+        # Arm 1 - Column 0 with editable label
+        self.arm1_label = EditableLabel("Arm 1", "arm1_label", bold=True, font_size=12)
+        self.editable_labels.append(self.arm1_label)
+        arm_layout.addWidget(self.arm1_label, 0, 0)
         
-        btn_arm1_up = QPushButton("⬆️ Up")
+        btn_arm1_up = QPushButton("Up")
         btn_arm1_up.pressed.connect(lambda: self.backend.send_command('Z'))
         btn_arm1_up.released.connect(lambda: self.backend.send_command(STOP_ARM1))
         arm_layout.addWidget(btn_arm1_up, 1, 0)
         self.all_buttons.append(btn_arm1_up)
         
-        btn_arm1_down = QPushButton("⬇️ Down")
+        btn_arm1_down = QPushButton("Down")
         btn_arm1_down.pressed.connect(lambda: self.backend.send_command('A'))
         btn_arm1_down.released.connect(lambda: self.backend.send_command(STOP_ARM1))
         arm_layout.addWidget(btn_arm1_down, 2, 0)
         self.all_buttons.append(btn_arm1_down)
         
-        # Arm 2 - Column 1
-        arm2_label = QLabel("Arm 2")
-        arm2_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        arm_layout.addWidget(arm2_label, 0, 1)
+        # Arm 2 - Column 1 with editable label
+        self.arm2_label = EditableLabel("Arm 2", "arm2_label", bold=True, font_size=12)
+        self.editable_labels.append(self.arm2_label)
+        arm_layout.addWidget(self.arm2_label, 0, 1)
         
-        btn_arm2_up = QPushButton("⬆️ Up")
+        btn_arm2_up = QPushButton("Up")
         btn_arm2_up.pressed.connect(lambda: self.backend.send_command('S'))
         btn_arm2_up.released.connect(lambda: self.backend.send_command(STOP_ARM2))
         arm_layout.addWidget(btn_arm2_up, 1, 1)
         self.all_buttons.append(btn_arm2_up)
         
-        btn_arm2_down = QPushButton("⬇️ Down")
+        btn_arm2_down = QPushButton("Down")
         btn_arm2_down.pressed.connect(lambda: self.backend.send_command('X'))
         btn_arm2_down.released.connect(lambda: self.backend.send_command(STOP_ARM2))
         arm_layout.addWidget(btn_arm2_down, 2, 1)
         self.all_buttons.append(btn_arm2_down)
         
-        # Arm 3 - Column 2
-        arm3_label = QLabel("Arm 3")
-        arm3_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        arm_layout.addWidget(arm3_label, 0, 2)
+        # Arm 3 - Column 2 with editable label
+        self.arm3_label = EditableLabel("Arm 3", "arm3_label", bold=True, font_size=12)
+        self.editable_labels.append(self.arm3_label)
+        arm_layout.addWidget(self.arm3_label, 0, 2)
         
         btn_arm3_cw = QPushButton("↻ CW")
         btn_arm3_cw.pressed.connect(lambda: self.backend.send_command('C'))
@@ -116,7 +185,8 @@ class ControlPanel(QGroupBox):
         arm_layout.addWidget(btn_arm3_ccw, 2, 2)
         self.all_buttons.append(btn_arm3_ccw)
         
-        arm_group.setLayout(arm_layout)
+        arm_main_layout.addLayout(arm_layout)
+        arm_group.setLayout(arm_main_layout)
         layout.addWidget(arm_group)
         
         # LED toggle
@@ -126,6 +196,49 @@ class ControlPanel(QGroupBox):
         self.all_buttons.append(btn_led)
         
         self.setLayout(layout)
+    
+    def _toggle_edit_mode(self):
+        """Toggle edit mode for all labels."""
+        if not self.edit_mode_active:
+            # Enable edit mode
+            self.edit_mode_active = True
+            self.edit_mode_btn.setText("✓")
+            self.edit_mode_btn.setToolTip("Apply changes")
+            self.edit_mode_btn.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                    background: #4CAF50;
+                    color: white;
+                    font-size: 16px;
+                    padding: 2px;
+                    border-radius: 3px;
+                }
+            """)
+            # Add title to editable labels
+            self.title_label.enable_edit_mode()
+            for label in self.editable_labels:
+                label.enable_edit_mode()
+        else:
+            # Disable edit mode and save
+            self.edit_mode_active = False
+            self.edit_mode_btn.setText("✏️")
+            self.edit_mode_btn.setToolTip("Edit labels")
+            self.edit_mode_btn.setStyleSheet("""
+                QPushButton {
+                    border: none;
+                    background: transparent;
+                    font-size: 16px;
+                    padding: 2px;
+                }
+                QPushButton:hover {
+                    background: rgba(0, 0, 0, 0.1);
+                    border-radius: 3px;
+                }
+            """)
+            # Save title and all labels
+            self.title_label.disable_edit_mode(save=True)
+            for label in self.editable_labels:
+                label.disable_edit_mode(save=True)
     
     def refresh_theme(self):
         """Refresh button styles after theme change."""
