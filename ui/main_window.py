@@ -3,9 +3,9 @@ Main UI window for robot controller.
 """
 
 import time
-from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QGroupBox, QPushButton, QLabel, QTextEdit, QMessageBox,
-                               QMenuBar, QMenu)
+                               QMenuBar, QMenu, QSplitter)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QAction
 
@@ -50,45 +50,52 @@ class RobotControlUI(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QHBoxLayout(central)
-        
-        # Right panel: Controls (now on the left side)
-        right_panel = QVBoxLayout()
-        
+
+        # Create a splitter
+        splitter = QSplitter(Qt.Horizontal)
+        main_layout.addWidget(splitter)
+
+        # Left panel widget
+        left_widget = QWidget()
+        right_panel = QVBoxLayout(left_widget)
+
         # Mode selection
         mode_group = self._create_mode_selector()
         right_panel.addWidget(mode_group)
-        
+
         # Bluetooth panel
         self.bt_panel = BluetoothPanel(self.backend, self.signals)
         right_panel.addWidget(self.bt_panel)
-        
+
         # Manual controls
         self.control_panel = ControlPanel(self.backend)
         right_panel.addWidget(self.control_panel)
-        
+
         # Command info
         info_group = self._create_info_panel()
         right_panel.addWidget(info_group)
-        
+
         # Log display
         log_group = self._create_log_panel()
         right_panel.addWidget(log_group)
-        
+
         right_panel.addStretch()
-        main_layout.addLayout(right_panel, 1)
-        
-        # Left panel: Video + Status (now on the right side)
-        left_panel = QVBoxLayout()
-        
+        splitter.addWidget(left_widget)
+
+        # Right panel widget
+        right_widget = QWidget()
+        left_panel = QVBoxLayout(right_widget)
+
         # Video display
         self.video_display = VideoDisplay()
         left_panel.addWidget(self.video_display)
-        
+
         # Status bar
         status_group = self._create_status_bar()
         left_panel.addWidget(status_group)
-        
-        main_layout.addLayout(left_panel, 2)
+
+        splitter.addWidget(right_widget)
+        splitter.setSizes([int(WINDOW_WIDTH * 0.33), int(WINDOW_WIDTH * 0.67)])
     
     def _open_model_config(self):
         """Open model configuration dialog."""
@@ -171,7 +178,6 @@ class RobotControlUI(QMainWindow):
         
         info_text = QTextEdit()
         info_text.setReadOnly(True)
-        info_text.setMaximumHeight(150)
         info_text.setHtml("""
         <b>Dynamic Models:</b><br>
         Use <b>Models → Configure Models</b> to load new models and assign letters to classes.<br><br>
@@ -190,7 +196,6 @@ class RobotControlUI(QMainWindow):
         
         self.log_display = QTextEdit()
         self.log_display.setReadOnly(True)
-        self.log_display.setMaximumHeight(200)
         layout.addWidget(self.log_display)
         
         log_group.setLayout(layout)
@@ -374,10 +379,10 @@ class RobotControlUI(QMainWindow):
         save_config_action.triggered.connect(self._open_configuration_manager)
         models_menu.addAction(save_config_action)
         
-        # Tools menu
+                # Tools menu
         tools_menu = menubar.addMenu("Tools")
         
-        monitor_action = QAction("📡 Virtual BT Monitor", self)
+        monitor_action = QAction("📡 Bluetooth Monitor", self)
         monitor_action.triggered.connect(self._open_virtual_monitor)
         tools_menu.addAction(monitor_action)
         
@@ -414,14 +419,14 @@ class RobotControlUI(QMainWindow):
         self.add_log(f"Theme changed to: {new_theme}", "success")
     
     def _open_virtual_monitor(self):
-        """Open virtual Bluetooth monitor window."""
-        if not self.backend.bluetooth.is_virtual():
+        """Open Bluetooth monitor window."""
+        if not self.backend.bluetooth.is_connected():
             from PySide6.QtWidgets import QMessageBox
             reply = QMessageBox.question(
                 self,
-                "Virtual Mode Required",
-                "Virtual Bluetooth Monitor requires Virtual Connection mode.\n\n"
-                "Would you like to switch to virtual mode now?",
+                "Connection Required",
+                "Bluetooth Monitor requires an active connection.\n\n"
+                "Would you like to connect using virtual mode now?",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )

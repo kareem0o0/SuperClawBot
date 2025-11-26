@@ -45,7 +45,7 @@ class VirtualBluetoothMonitor(QDialog):
     def __init__(self, backend, parent=None):
         super().__init__(parent)
         self.backend = backend
-        self.setWindowTitle("🔍 Virtual Bluetooth Monitor")
+        self.setWindowTitle("🔍 Bluetooth Monitor")
         self.setMinimumSize(900, 600)
         
         # Track statistics
@@ -61,7 +61,7 @@ class VirtualBluetoothMonitor(QDialog):
         layout = QVBoxLayout()
         
         # Header
-        header = QLabel("📡 Virtual Bluetooth Data Stream Monitor")
+        header = QLabel("📡 Bluetooth Data Stream Monitor")
         header.setFont(QFont("Arial", 14, QFont.Bold))
         header.setAlignment(Qt.AlignCenter)
         layout.addWidget(header)
@@ -70,9 +70,10 @@ class VirtualBluetoothMonitor(QDialog):
         status_group = QGroupBox("Connection Status")
         status_layout = QHBoxLayout()
         
-        self.status_label = QLabel("🟢 VIRTUAL MODE - Simulation Active")
+        self.status_label = QLabel("🟢 Connected")
         self.status_label.setFont(QFont("Arial", 10, QFont.Bold))
         self.status_label.setStyleSheet("color: #00ff88;")
+        self._update_connection_status()
         status_layout.addWidget(self.status_label)
         
         status_layout.addStretch()
@@ -162,19 +163,19 @@ class VirtualBluetoothMonitor(QDialog):
     
     def _update_display(self):
         """Update display with latest commands."""
-        if not self.backend.bluetooth or not hasattr(self.backend.bluetooth, 'connection'):
+        if not self.backend.bluetooth:
             return
         
-        connection = self.backend.bluetooth.connection
-        if not connection or not hasattr(connection, 'get_history'):
-            return
-        
-        history = connection.get_history()
+        # Get history from bluetooth manager (works for all connection types)
+        history = self.backend.bluetooth.get_history()
         
         # Update table if new commands
         if len(history) != self.command_table.rowCount():
             self._refresh_table(history)
             self._update_statistics(history)
+        
+        # Update connection status
+        self._update_connection_status()
     
     def _refresh_table(self, history):
         """Refresh command table with history."""
@@ -242,12 +243,25 @@ class VirtualBluetoothMonitor(QDialog):
         # Mode is tracked in backend, no action needed here
         pass
     
+    def _update_connection_status(self):
+        """Update the connection status label."""
+        if not self.backend.bluetooth or not self.backend.bluetooth.is_connected():
+            self.status_label.setText("🔴 Disconnected")
+            self.status_label.setStyleSheet("color: #ff4444; font-weight: bold;")
+            return
+        
+        if self.backend.bluetooth.is_virtual():
+            self.status_label.setText("🟢 VIRTUAL MODE - Simulation Active")
+            self.status_label.setStyleSheet("color: #6495ED; font-weight: bold;")
+        else:
+            connection_type = self.backend.bluetooth.connection_type or "Unknown"
+            self.status_label.setText(f"🟢 REAL BLUETOOTH - {connection_type.upper()} Connection")
+            self.status_label.setStyleSheet("color: #00ff88; font-weight: bold;")
+    
     def _clear_history(self):
         """Clear command history."""
-        if self.backend.bluetooth and hasattr(self.backend.bluetooth, 'connection'):
-            connection = self.backend.bluetooth.connection
-            if connection:
-                connection.clear_history()
+        if self.backend.bluetooth:
+            self.backend.bluetooth.clear_history()
         
         self.command_table.setRowCount(0)
         self.total_commands = 0
@@ -268,14 +282,10 @@ class VirtualBluetoothMonitor(QDialog):
             return
         
         try:
-            if not self.backend.bluetooth or not hasattr(self.backend.bluetooth, 'connection'):
+            if not self.backend.bluetooth:
                 return
             
-            connection = self.backend.bluetooth.connection
-            if not connection:
-                return
-            
-            history = connection.get_history()
+            history = self.backend.bluetooth.get_history()
             
             with open(filename, 'w') as f:
                 f.write("Virtual Bluetooth Command History\n")

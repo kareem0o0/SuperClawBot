@@ -4,7 +4,7 @@ Voice recognition model handler.
 
 import os
 import numpy as np
-import tflite_runtime.interpreter as tflite
+import tensorflow.lite as tflite
 
 from utils.resource_loader import resource_path
 

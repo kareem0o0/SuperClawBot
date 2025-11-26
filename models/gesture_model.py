@@ -5,7 +5,7 @@ Gesture recognition model handler.
 import os
 import numpy as np
 from PIL import Image, ImageOps
-import tflite_runtime.interpreter as tflite
+import tensorflow.lite as tflite
 
 from config import GESTURE_IMAGE_SIZE
 from utils.resource_loader import resource_path

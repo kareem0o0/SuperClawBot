@@ -4,7 +4,7 @@ Extracts feature vectors from TFLite models without classification.
 """
 
 import numpy as np
-import tflite_runtime.interpreter as tflite
+import tensorflow.lite as tflite
 from PIL import Image, ImageOps
 
 from config import GESTURE_IMAGE_SIZE
