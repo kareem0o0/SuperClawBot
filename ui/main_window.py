@@ -5,7 +5,7 @@ Main UI window for robot controller.
 import time
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QGroupBox, QPushButton, QLabel, QTextEdit, QMessageBox,
-                               QMenuBar, QMenu, QSplitter)
+                               QMenuBar, QMenu, QSplitter, QScrollArea)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QAction
 
@@ -80,7 +80,14 @@ class RobotControlUI(QMainWindow):
         right_panel.addWidget(log_group)
 
         right_panel.addStretch()
-        splitter.addWidget(left_widget)
+
+        # Wrap left panel in scroll area for full-screen compatibility
+        left_scroll_area = QScrollArea()
+        left_scroll_area.setWidget(left_widget)
+        left_scroll_area.setWidgetResizable(True)
+        left_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        left_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        splitter.addWidget(left_scroll_area)
 
         # Right panel widget
         right_widget = QWidget()
