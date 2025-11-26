@@ -22,7 +22,7 @@ class VideoDisplay(QGroupBox):
         layout = QVBoxLayout()
         
         self.video_label = QLabel("Waiting for camera...")
-        self.video_label.setFixedSize(VIDEO_WIDTH, VIDEO_HEIGHT)
+        self.video_label.setMinimumSize(VIDEO_WIDTH, VIDEO_HEIGHT)
         self.video_label.setStyleSheet("""
             background: #000; 
             border: 3px solid #00ff88; 
@@ -30,6 +30,7 @@ class VideoDisplay(QGroupBox):
             border-radius: 10px;
         """)
         self.video_label.setAlignment(Qt.AlignCenter)
+        self.video_label.setScaledContents(False)
         
         layout.addWidget(self.video_label)
         self.setLayout(layout)
@@ -54,6 +55,7 @@ class VideoDisplay(QGroupBox):
             
             q_img = QImage(frame_rgb.data, width, height, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(q_img)
+            # Scale to fill the label while keeping aspect ratio
             scaled = pixmap.scaled(self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             
             self.video_label.setPixmap(scaled)
